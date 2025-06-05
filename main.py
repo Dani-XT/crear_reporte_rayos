@@ -5,9 +5,18 @@ import pandas as pd
 import pyodbc
 import os
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 load_dotenv()
 
+import logging
+
+logging.basicConfig(
+    filename="reporte.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8"
+)
 
 class ReportGenerator:
     def __init__(self):
@@ -18,35 +27,68 @@ class ReportGenerator:
             f"UID={os.getenv('SQL_USERNAME')};"
             f"PWD={os.getenv('SQL_PASSWORD')};"
         )
+        # La línea del engine ya no la necesitamos si usamos pyodbc directamente
+        # self.engine = create_engine(f"mssql+pyodbc:///?odbc_connect={self.connection_string}")
 
+    def probar_conexion(self):
+        try:
+            # Intenta hacer una conexión simple
+            with pyodbc.connect(self.connection_string) as conn:
+                print("Conexión exitosa a la base de datos")
+            return True
+        except Exception as e:
+            print(f"Error al conectar a la base de datos: {str(e)}")
+            return False
+
+    # ===> ESTE método DEBE ESTAR AL MISMO NIVEL QUE __init__ y probar_conexion <===
+    # Asegúrate de que la línea de abajo empiece con la misma cantidad de espacios
+    # que 'def __init__(self):' y 'def probar_conexion(self):'
     def generar_excel(self, ruta, fecha_inicio, fecha_fin):
-        query = f"""
-        SELECT 
-            pt.PatientID,
-            pt.FirstName,
-            pt.LastName,
-            st.StudyDate,
-            iser.SeriesTime,
-            img.ImageTime,
-            img.ImageGUID,
-            img.Modality,
-            img.SeriesGUID
-        FROM 
-            PIDB_Patient pt
-        JOIN 
-            PIDB_Study st ON pt.PatientGUID = st.PatientGUID
-        JOIN 
-            PIDB_ImageSeries iser ON st.StudyGUID = iser.StudyGUID
-        JOIN 
-            PIDB_Image img ON iser.SeriesGUID = img.SeriesGUID
-        WHERE 
-            st.StudyDate BETWEEN ? AND ?
-        ORDER BY 
-            pt.LastName, st.StudyDate, iser.SeriesTime, img.ImageTime;
-        """
-        with pyodbc.connect(self.connection_string) as conn:
-            df = pd.read_sql(query, conn, params=[fecha_inicio, fecha_fin])
-            df.to_excel(ruta, index=False)
+        try:
+            # Convertir las fechas a string en formato SQL Server
+            fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d')
+            fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
+
+            query = """
+            SELECT
+                pt.PatientID,
+                pt.FirstName,
+                pt.LastName,
+                st.StudyTime,
+                iser.SeriesTime,
+                img.ImageTime,
+                img.ImageGUID,
+                img.SeriesGUID
+            FROM
+                PIDB_Patient pt
+            JOIN
+                PIDB_Study st ON pt.PatientGUID = st.PatientGUID
+            JOIN
+                PIDB_ImageSeries iser ON st.StudyGUID = iser.StudyGUID
+            JOIN
+                PIDB_Image img ON iser.SeriesGUID = img.SeriesGUID
+            WHERE
+                st.StudyTime BETWEEN ? AND ?
+            ORDER BY
+                pt.LastName, st.StudyTime, iser.SeriesTime, img.ImageTime;
+            """
+
+            # Ejecutar la consulta usando pyodbc directamente
+            with pyodbc.connect(self.connection_string) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (fecha_inicio_str, fecha_fin_str))
+                columns = [column[0] for column in cursor.description]
+                data = cursor.fetchall()
+
+                # Crear DataFrame y guardar en Excel
+                df = pd.DataFrame.from_records(data, columns=columns)
+                df.to_excel(ruta, index=False)
+                logging.info(f"Reporte generado exitosamente. Rango: {fecha_inicio} - {fecha_fin}. Ruta: {ruta}")
+
+        except Exception as e:
+            print(f"Error en la conexión: {str(e)}")
+            logging.error(f"Error al generar el reporte: {e}")
+            raise
 
 
 class AppGUI:
@@ -55,6 +97,12 @@ class AppGUI:
         self.root.title("Generador de Reportes CliniView")
         self.root.geometry("500x350")
         self.reporte = ReportGenerator()
+        
+        # Probar conexión al iniciar
+        if not self.reporte.probar_conexion():
+            messagebox.showerror("Error de Conexión", 
+                               "No se pudo conectar a la base de datos.\n"
+                               "Por favor verifica la configuración en el archivo .env")
 
         self.build_gui()
 
