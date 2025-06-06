@@ -32,12 +32,15 @@ class ReportGenerator:
 
     def probar_conexion(self):
         try:
+            logging.info("Intentando conectar a la base de datos...")
             # Intenta hacer una conexión simple
             with pyodbc.connect(self.connection_string) as conn:
                 print("Conexión exitosa a la base de datos")
+                logging.info("Conexión exitosa a la base de datos.")
             return True
         except Exception as e:
             print(f"Error al conectar a la base de datos: {str(e)}")
+            logging.error(f"Error al conectar a la base de datos: {e}")
             return False
 
     # ===> ESTE método DEBE ESTAR AL MISMO NIVEL QUE __init__ y probar_conexion <===
@@ -50,29 +53,73 @@ class ReportGenerator:
             fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
 
             query = """
-            SELECT
-                pt.PatientID,
-                pt.FirstName,
-                pt.LastName,
-                st.StudyTime,
-                iser.SeriesTime,
-                img.ImageTime,
-                img.ImageGUID,
-                img.SeriesGUID
-            FROM
-                PIDB_Patient pt
-            JOIN
-                PIDB_Study st ON pt.PatientGUID = st.PatientGUID
-            JOIN
-                PIDB_ImageSeries iser ON st.StudyGUID = iser.StudyGUID
-            JOIN
-                PIDB_Image img ON iser.SeriesGUID = img.SeriesGUID
-            WHERE
-                st.StudyTime BETWEEN ? AND ?
-            ORDER BY
-                pt.LastName, st.StudyTime, iser.SeriesTime, img.ImageTime;
+            SELECT [LogGUID] AS ID
+                ,[LogTime] AS Fecha
+                ,[UserName] AS Usuario
+                ,[WorkstationName] AS Maquina
+                ,[LogAction] AS Accion
+                ,[Object]
+                ,
+            CASE 
+                WHEN CHARINDEX('PNa="', Description) > 0 
+                THEN SUBSTRING(
+                Description,
+                CHARINDEX('PNa="', Description) + 5,
+                CHARINDEX('"', Description, CHARINDEX('PNa="', Description) + 5) - CHARINDEX('PNa="', Description) - 5
+                ) 
+                ELSE NULL 
+            END AS Nombre,
+
+            CASE 
+                WHEN CHARINDEX('PID="', Description) > 0 
+                THEN SUBSTRING(
+                Description,
+                CHARINDEX('PID="', Description) + 5,
+                CHARINDEX('"', Description, CHARINDEX('PID="', Description) + 5) - CHARINDEX('PID="', Description) - 5
+                ) 
+                ELSE NULL 
+            END AS RUT,
+
+            CASE 
+                WHEN CHARINDEX('Mod="', Description) > 0 
+                THEN SUBSTRING(
+                Description,
+                CHARINDEX('Mod="', Description) + 5,
+                CHARINDEX('"', Description, CHARINDEX('Mod="', Description) + 5) - CHARINDEX('Mod="', Description) - 5
+                ) 
+                ELSE NULL 
+            END AS Modo,
+
+            CASE 
+                WHEN CHARINDEX('Src="', Description) > 0 
+                THEN SUBSTRING(
+                Description,
+                CHARINDEX('Src="', Description) + 5,
+                CHARINDEX('"', Description, CHARINDEX('Src="', Description) + 5) - CHARINDEX('Src="', Description) - 5
+                ) 
+                ELSE NULL 
+            END AS Fuente,
+
+            CASE 
+                WHEN CHARINDEX('IGu="', Description) > 0 
+                THEN SUBSTRING(
+                Description,
+                CHARINDEX('IGu="', Description) + 5,
+                CHARINDEX('"', Description, CHARINDEX('IGu="', Description) + 5) - CHARINDEX('IGu="', Description) - 5
+                ) 
+                ELSE NULL 
+            END AS IGu
+
+            FROM [CliniView].[dbo].[PIDB_Log]
+
+            WHERE Description IS NOT NULL AND
+            CAST(LogTime AS DATE) >= CAST(? AS DATE) AND 
+            CAST(LogTime AS DATE) <= CAST(? AS DATE)
+
+            ORDER BY LogTime ASC
             """
 
+            logging.info(f"Ejecutando consulta para rango: {fecha_inicio_str} - {fecha_fin_str}")
             # Ejecutar la consulta usando pyodbc directamente
             with pyodbc.connect(self.connection_string) as conn:
                 cursor = conn.cursor()
@@ -87,7 +134,7 @@ class ReportGenerator:
 
         except Exception as e:
             print(f"Error en la conexión: {str(e)}")
-            logging.error(f"Error al generar el reporte: {e}")
+            logging.error(f"Error al generar el reporte: {e}")
             raise
 
 
@@ -99,10 +146,12 @@ class AppGUI:
         self.reporte = ReportGenerator()
         
         # Probar conexión al iniciar
+        logging.info("Iniciando aplicación GUI...")
         if not self.reporte.probar_conexion():
             messagebox.showerror("Error de Conexión", 
                                "No se pudo conectar a la base de datos.\n"
-                               "Por favor verifica la configuración en el archivo .env")
+                               "Por favor verifica la configuración en el archivo .env\n"
+                               "Consulta reporte.log para más detalles.") # Agregamos instrucción para ver el log
 
         self.build_gui()
 
@@ -128,10 +177,12 @@ class AppGUI:
         nombre = self.nombre_var.get().strip()
         if not nombre:
             messagebox.showwarning("Falta nombre", "Debes ingresar un nombre para el archivo.")
+            logging.warning("Intento de generar reporte sin nombre de archivo.")
             return
 
         carpeta = filedialog.askdirectory(title="Selecciona carpeta de destino")
         if not carpeta:
+            logging.info("Selección de carpeta cancelada.")
             return
 
         ruta = os.path.join(carpeta, f"{nombre}.xlsx")
@@ -142,13 +193,16 @@ class AppGUI:
             self.barra["value"] = 25
             self.root.update_idletasks()
 
+            logging.info(f"Iniciando generación de reporte para rango: {fecha_inicio} - {fecha_fin}")
             self.reporte.generar_excel(ruta, fecha_inicio, fecha_fin)
 
             self.barra["value"] = 100
             messagebox.showinfo("Éxito", f"Reporte guardado en:\n{ruta}")
+            logging.info("Reporte generado y guardado con éxito.")
         except Exception as e:
             self.barra["value"] = 0
-            messagebox.showerror("Error", f"No se pudo generar el reporte:\n{e}")
+            messagebox.showerror("Error", f"No se pudo generar el reporte:\n{e}\nConsulta reporte.log para más detalles.") # Agregamos instrucción para ver el log
+            logging.error(f"Error al generar el reporte: {e}", exc_info=True)
 
 
 class Main:
