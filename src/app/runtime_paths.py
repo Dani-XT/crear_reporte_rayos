@@ -19,6 +19,8 @@ if IS_DEV:
 if IS_PROD:
     DATA_DIR = _get_appdata_dir() / APP_NAME
 
+CACHE_DIR = DATA_DIR / "cache"
+
 LOGS_DIR = DATA_DIR / "logs"
 TEMPLATE_DIR = DATA_DIR / "templates"
 REPORTE_README_FILE = TEMPLATE_DIR / "reporte_readme.html"

@@ -27,6 +27,7 @@ class AppPaths:
 @dataclass(frozen=True)
 class AppRuntimePaths:
     data_dir: Path
+    cache_dir: Path
     logs_dir: Path
     templates_dir: Path
     reporte_readme_file: Path
@@ -58,6 +59,7 @@ def build_app_context() -> AppContext:
         ),
         runtime = AppRuntimePaths(
             data_dir=rp.DATA_DIR,
+            cache_dir=rp.CACHE_DIR,
             logs_dir=rp.LOGS_DIR,
             templates_dir=rp.TEMPLATE_DIR,
             reporte_readme_file=rp.REPORTE_README_FILE,

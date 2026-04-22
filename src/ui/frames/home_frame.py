@@ -1,13 +1,16 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
+from datetime import date
 
-from tkcalendar import DateEntry
 
 from src.ui.frames.base_frame import BaseFrame
+from src.ui.components.widget import SafeDateEntry
 
 from src.core.app_context import AppContext
 
 from src.controller.home_controller import HomeController
+
+from src.models.forms import HomeFormData
 
 class HomeFrame(BaseFrame):
     def __init__(self, master, context: AppContext, page_controller: HomeController):
@@ -58,22 +61,22 @@ class HomeFrame(BaseFrame):
         fecha_inicio_bg = tk.Label(calendario, image=self.fecha_img, bg="white", bd=0)
         fecha_inicio_bg.place(x=35, y=40)
 
-        self.fecha_inicio = DateEntry(fecha_inicio_bg, date_pattern="dd-mm-yyyy", bd=0, font=("Segoe UI", 10), style="Custom.DateEntry")
-        self.fecha_inicio.place(x=12, y=5, width=180, height=22)
+        self.fecha_inicio = SafeDateEntry(fecha_inicio_bg, date_pattern="dd-mm-yyyy", bd=0, font=("Segoe UI", 10), style="Custom.DateEntry", maxdate=date.today(), state="readonly")
+        self.fecha_inicio.place(x=30, y=5, width=180, height=22)
 
         tk.Label(calendario, anchor="nw", text="Fecha Fin", fg="#246FC6", font=("Segoe UI Semibold", 16 * -1, "bold"), bg="#FAFAFA").place(x=40, y=80)
         fecha_fin_bg = tk.Label(calendario, image=self.fecha_img, bg="white", bd=0)
         fecha_fin_bg.place(x=35, y=110)
-
-        self.fecha_fin = DateEntry(fecha_fin_bg, date_pattern="dd-mm-yyyy", bd=0, font=("Segoe UI", 10), style="Custom.DateEntry")
-        self.fecha_fin.place(x=12, y=5, width=180, height=22)
+        
+        self.fecha_fin = SafeDateEntry(fecha_fin_bg, date_pattern="dd-mm-yyyy", bd=0, font=("Segoe UI", 10), style="Custom.DateEntry", maxdate=date.today(), state="readonly")
+        self.fecha_fin.place(x=30, y=5, width=180, height=22)
 
 
     def _build_footer(self):
         footer = tk.Frame(self, bg="#72B2E6", height=45)
         footer.place(relx=0, rely=1, anchor="sw", relwidth=1, y=-10)
 
-        enviar_btn = tk.Button(footer, image=self.exportar_img, bg="#72B2E6", activebackground="#72B2E6", borderwidth=0, highlightthickness=0, relief="flat", cursor="hand2", command=self.controller.on_export)
+        enviar_btn = tk.Button(footer, image=self.exportar_img, bg="#72B2E6", activebackground="#72B2E6", borderwidth=0, highlightthickness=0, relief="flat", cursor="hand2", command=lambda: self.controller.on_export(self))
         enviar_btn.place(relx=0.5, rely=0.5, anchor="center")
 
     def _configure_styles(self):
@@ -91,3 +94,23 @@ class HomeFrame(BaseFrame):
             arrowcolor="#246FC6",
             padding=0
         )
+
+    def get_form_data(self):
+        return HomeFormData(
+            start_date = self.fecha_inicio.get_date(),
+            end_date = self.fecha_fin.get_date(),
+        )
+    
+    def ask_export_path(self, default_name: str) -> str | None:
+        return filedialog.asksaveasfilename(
+            title="Guardar reporte",
+            defaultextension=".xlsx",
+            initialfile=default_name,
+            filetypes=[("Archivos Excel", "*.xlsx")],
+        ) or None
+    
+    def run_on_ui(self, callback):
+        self.after(0, callback)
+    
+    
+    
