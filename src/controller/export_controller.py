@@ -12,6 +12,6 @@ class ExportController:
         self.export_service = ExportService()
 
     def start(self, data: HomeFormData):
-        self.export_service.start_consulta(data)
+        self.export_service.build_report(data)
 
     

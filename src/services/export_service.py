@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from src.services.database_service import DatabaseService
 from src.services.excel_service import ExcelService
@@ -14,8 +15,7 @@ class ExportService:
     def __init__(self):
         self.excel_service = ExcelService()
 
-    def start_consulta(self, data: HomeFormData):
-        print("dentro de start consulta")
+    def build_report(self, data: HomeFormData) -> Path:
         db_service = DatabaseService()
     
         data, columns = db_service.fetch_report_data(data.start_date, data.end_date)
@@ -24,3 +24,6 @@ class ExportService:
         
         self.excel_service.load_to_excel(df)
         logger.info("Excel creado")
+
+    def copy_temp_report(self, temp_path: Path, final_path: str) -> Path:
+        return self.excel_service.copy_to_destination(temp_path, final_path)
