@@ -109,8 +109,8 @@ class HomeFrame(BaseFrame):
             filetypes=[("Archivos Excel", "*.xlsx")],
         ) or None
     
-    def run_on_ui(self, callback):
-        self.after(0, callback)
+    def schedule_task(self, delay_ms: int, callback):
+        self.after(delay_ms, callback)
     
     
     

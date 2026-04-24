@@ -22,6 +22,9 @@ class AppError(Exception):
 class InternalError(AppError):
     default_title = "Ocurrio un error inesperado."
 
+class ExportError(AppError):
+    default_title = "Ocurrio un error al exportar"
+
 
 # =========================
 # EXCEL
@@ -54,7 +57,8 @@ class HelpFileNotFoundError(HelpFileError):
 class HelpFileOpenError(HelpFileError):
     default_title = "Error al abrir ayuda"
 
-
+class DateRangeError(AppError):
+    default_title = "Rango de fechas invalido"
 
 class DataBaseConnectionError(AppError):
     default_title = "Error conectando a la Base de Datos"

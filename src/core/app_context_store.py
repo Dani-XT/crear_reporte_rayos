@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.core.app_context import AppContext, AppConfig, AppPaths
+from src.core.app_context import AppContext, AppConfig, AppPaths, AppRuntimePaths
 
 _APP_CONTEXT: AppContext | None = None
 
@@ -18,6 +18,9 @@ def get_app_config() -> AppConfig:
 
 def get_app_paths() -> AppPaths:
     return get_app_context().paths
+
+def get_runtime_paths() -> AppRuntimePaths:
+    return get_app_context().runtime
 
 def clear_app_context() -> None:
     global _APP_CONTEXT

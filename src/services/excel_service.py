@@ -1,8 +1,15 @@
+import shutil
 import polars as pl
+from pathlib import Path
+from datetime import datetime
+
+from src.core.app_context_store import get_runtime_paths
 
 from src.utils.text_utils import reorder_nombre, format_rut, expand_fuente
 
 class ExcelService:
+    def __init__(self):
+        self.runtime = get_runtime_paths()
     
     def convert_to_polars(self, data, columns):
         df = pl.DataFrame(data, schema=columns, orient="row")
@@ -41,5 +48,15 @@ class ExcelService:
             "IGu",
         ])
 
-    def load_to_excel(self, df: pl.DataFrame):
-        df.write_excel("prueba.xlsx")
+    def save_temp_excel(self, df: pl.DataFrame,) -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"reporte_cliniview_{timestamp}.xlsx"
+        temp_path = self.runtime.cache_dir / filename
+        df.write_excel(temp_path)
+        return temp_path
+    
+    def copy_to_destination(self, temp_path: Path, final_path: str) -> Path:
+        target = Path(final_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(temp_path, target)
+        return target
